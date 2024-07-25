@@ -1,30 +1,60 @@
-#include "stdio.h"
 #include "stdlib.h"
 #include "unistd.h"
-#include "cmath"
+#include "stdio.h"
+#include "string.h"
 #include "time.h"
+#include "cmath"
 
 
 class Process
 {
     char* id;
-    char* type;
+    const char* type;
     int arrival;
     int bursts;
 
     public:
 
-    Process(char* i, char* t, double l) {
-        double rand = drand48();
+    Process(char* i, const char* t, double l, int b) {
         id = i;
         type = t;
-        arrival = -(log(rand)) / l;
+        arrival = floor(next_exp(l));
+        while (arrival > b) {
+            arrival = floor(next_exp(l));
+        }
+        double rand = drand48();
         bursts = (int) ceil(rand * 32);
     }
     char* getId() const {return id;}
-    char* getType() const {return type;}
+    const char* getType() const {return type;}
     int getArrival() const {return arrival;}
     int getBursts() const {return bursts;}
+
+    double next_exp(double l) {
+        double rand = drand48();
+        return -(log(rand)) / l;
+    }
+
+
+    void runBursts(double l) {
+        for (int i = 0; i < getBursts(); i++) {
+            int cpu_time = ceil(next_exp(l));
+            int io_time = ceil(next_exp(l));
+
+            if (strcmp(getType(), "CPU")){
+                cpu_time *= 4;
+            } else {
+                io_time *= 8;
+            }
+            if (i != getBursts() - 1) {
+                printf("===> CPU burst %dms ==> I/O burst %dms\n", cpu_time, io_time);
+            } else {
+                printf("===> CPU burst %dms\n", cpu_time);
+            }
+        }
+    }
+
+
 };
 
 int main(int argc, char** args)
@@ -44,16 +74,32 @@ int main(int argc, char** args)
 
     char t1 = 'A';
     int t2 = 0;
+
+    int cpu_count = 0;
     for (int i = 0; i < n; i++) {
-        char* temp;
+        
+        char* temp = (char*) calloc(2, sizeof(char));
         if (t2 == 10) {
             t2 = 0;
             t1++;
         }
         sprintf(temp, "%c%d", t1, t2);
         t2++;
-        Process p = Process(temp, "CPU", lambda);
-        printf("%s-bound process %s: arrival time %dms; %d CPU bursts:\n", p.getType(), p.getId(), p.getArrival(), p.getBursts());
+
+        if (cpu_count < n_cpu) {
+            const char* typ = "CPU";
+            Process p = Process(temp, typ, lambda, bound);
+            printf("%s-bound process %s: arrival time %dms; %d CPU bursts:\n", p.getType(), p.getId(), p.getArrival(), p.getBursts());
+            p.runBursts(lambda);
+        } else {
+            const char* typ = "I/O";
+            Process p = Process(temp, typ, lambda, bound);
+            printf("%s-bound process %s: arrival time %dms; %d CPU bursts:\n", p.getType(), p.getId(), p.getArrival(), p.getBursts());
+            p.runBursts(lambda);
+        }
+
+        cpu_count++;
+        free(temp);
     }
 
     return EXIT_SUCCESS;
